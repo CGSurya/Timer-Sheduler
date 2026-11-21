@@ -1,0 +1,961 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0E6C8B">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Timebox">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;font:14px system-ui,-apple-system,'Segoe UI',sans-serif}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+<title>Timebox</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: header band with a live clock, then a two-column workspace: timed tasks (wide) beside daily reminder checklists. Stacks to one column on phones. */
+:root{
+  --bg:#EDF0F3; --surface:#FFFFFF; --surface2:#F4F6F8; --ink:#14202B; --muted:#5A6B7B; --line:#D6DDE4;
+  --accent:#0E6C8B; --accent-ink:#FFFFFF; --accent-soft:#DDEFF5;
+  --ok:#1E7B4B; --ok-soft:#DFF2E7; --warn:#A8500A; --warn-soft:#FBEBD3; --crit:#B42318; --crit-soft:#FBE1DE;
+  --font-display:'Space Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-body:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D141A; --surface:#141E26; --surface2:#1A2630; --ink:#E5ECF2; --muted:#92A3B2; --line:#26343F;
+    --accent:#56B6D6; --accent-ink:#06222D; --accent-soft:#16323E;
+    --ok:#4CC38A; --ok-soft:#14301F; --warn:#F2A04A; --warn-soft:#3A2812; --crit:#F2766B; --crit-soft:#3C1B18;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D141A; --surface:#141E26; --surface2:#1A2630; --ink:#E5ECF2; --muted:#92A3B2; --line:#26343F;
+  --accent:#56B6D6; --accent-ink:#06222D; --accent-soft:#16323E;
+  --ok:#4CC38A; --ok-soft:#14301F; --warn:#F2A04A; --warn-soft:#3A2812; --crit:#F2766B; --crit-soft:#3C1B18;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--ink); font-family:var(--font-body); font-size:15px; line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:20px 120px;
+}
+.wrap{max-width:1120px;margin:0 auto}
+h1,h2,h3{font-family:var(--font-display);margin:0;letter-spacing:-0.01em;text-wrap:balance}
+p{margin:0}
+button{font:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.top{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px 24px;align-items:end;padding-bottom:16px;border-bottom:1px solid var(--line);margin-bottom:20px}
+.brand h1{font-size:1.75rem;font-weight:700}
+.brand .sub{color:var(--muted);font-size:.9rem}
+.clock{text-align:right}
+.clock-time{font-family:var(--font-display);font-size:2.4rem;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+.clock-date{color:var(--muted);font-size:.85rem;margin-top:4px}
+.toolbar{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.summary{color:var(--muted);font-size:.9rem;flex:1 1 220px;min-width:0}
+
+.grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:28px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panelhead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px 12px;margin-bottom:12px}
+.panelhead h2{font-size:1.15rem;font-weight:600}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.rep.off .readout{color:var(--muted)}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.stack{display:grid;gap:10px}
+.glabel{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;margin:18px 0 8px}
+.glabel:first-child{margin-top:0}
+.empty{border:1px dashed var(--line);border-radius:10px;padding:18px;color:var(--muted);font-size:.92rem}
+.note{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between;background:var(--accent-soft);border-radius:10px;padding:10px 14px;margin-bottom:20px;font-size:.9rem}
+
+.btn{font-size:.86rem;font-weight:600;min-height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.btn:hover{background:var(--surface2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.08);background:var(--accent)}
+.btn.small{min-height:32px;padding:0 11px;font-size:.82rem}
+.btn.quiet{border-color:transparent;background:transparent;color:var(--muted)}
+.btn.quiet:hover{color:var(--ink)}
+.btn.crit{border-color:var(--crit);color:var(--crit)}
+
+.chip{display:inline-block;flex:none;font-size:.72rem;font-weight:600;padding:3px 9px;border-radius:99px;white-space:nowrap;background:var(--surface2);color:var(--muted);border:1px solid var(--line)}
+.chip.run{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.chip.ok{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.chip.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.chip.crit{background:var(--crit-soft);color:var(--crit);border-color:transparent}
+
+.thead{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.ttitle{min-width:0}
+.ttitle h3{font-size:1.02rem;font-weight:600;overflow-wrap:anywhere}
+.meta{color:var(--muted);font-size:.82rem}
+.notes{color:var(--muted);font-size:.88rem;margin-top:6px;overflow-wrap:anywhere}
+.live{display:flex;align-items:baseline;gap:4px 10px;flex-wrap:wrap;margin-top:12px}
+.readout{font-family:var(--font-display);font-size:2rem;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.sub{color:var(--muted);font-size:.85rem}
+.bar{height:6px;background:var(--line);border-radius:99px;overflow:hidden;margin-top:10px}
+.bar>i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .4s}
+.bar.sm{height:4px}
+.task.low .readout{color:var(--warn)} .task.low .bar>i{background:var(--warn)}
+.task.over .readout{color:var(--crit)} .task.over .bar>i{background:var(--crit)}
+.task.isdone .readout{font-size:1.25rem}
+.actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+
+details.donebox{margin-top:18px}
+details.donebox>summary{cursor:pointer;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;padding:6px 0}
+details.donebox .stack{margin-top:8px}
+
+.rhead{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center}
+.rtime{font-family:var(--font-display);font-size:1.2rem;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rname h3{font-size:1rem;font-weight:600;overflow-wrap:anywhere}
+.rem .bar{margin-top:12px}
+.checks{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:0}
+.checks label{display:flex;gap:10px;align-items:flex-start;padding:6px 2px;cursor:pointer;min-height:36px}
+.checks input{width:18px;height:18px;margin:2px 0 0;accent-color:var(--accent);flex:none}
+.checks input:checked+span{color:var(--muted);text-decoration:line-through}
+.checks span{overflow-wrap:anywhere}
+.rem.off{opacity:.72}
+.rem.off .checks label{cursor:default}
+
+form.card{margin-bottom:14px;display:grid;gap:12px}
+.field{display:grid;gap:5px;min-width:0}
+.field>label,.lbl{font-size:.78rem;font-weight:600;color:var(--muted)}
+input[type=text],input[type=number],input[type=time],input[type=datetime-local],textarea{
+  font:inherit;font-size:15px;width:100%;min-width:0;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)
+}
+textarea{min-height:92px;resize:vertical}
+.row2{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.err{color:var(--crit);font-size:.85rem}
+.err:empty{display:none}
+.formactions{display:flex;gap:8px;flex-wrap:wrap}
+.inline{display:flex;gap:8px;align-items:center;font-size:.9rem}
+.inline input{width:18px;height:18px;accent-color:var(--accent)}
+.day{position:relative}
+.day input{position:absolute;opacity:0;inset:0;cursor:pointer;margin:0;width:100%;height:100%}
+.day span{display:grid;place-items:center;width:36px;height:36px;border-radius:8px;border:1px solid var(--line);font-weight:600;font-size:.85rem;color:var(--muted);background:var(--surface)}
+.day input:checked+span{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.day input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+
+#alerts{
+  position:fixed;left:0;right:0;bottom:0;display:grid;gap:8px;justify-items:center;pointer-events:none;z-index:20;
+  padding:0 max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+}
+.alert{pointer-events:auto;width:min(560px,100%);background:var(--ink);color:var(--bg);border-radius:12px;padding:12px 14px;display:flex;gap:10px 12px;align-items:center;justify-content:space-between;flex-wrap:wrap;box-shadow:0 8px 28px rgba(0,0,0,.28)}
+.alert .atext{display:grid;gap:2px;min-width:0;flex:1 1 220px;overflow-wrap:anywhere}
+.alert .abtns{display:flex;gap:6px;flex-wrap:wrap}
+.alert .btn{background:transparent;color:inherit;border-color:rgba(127,127,127,.55)}
+.alert .btn:hover{background:rgba(127,127,127,.2)}
+.alert .btn.quiet{border-color:transparent;opacity:.85}
+
+@media (prefers-reduced-motion:reduce){.bar>i{transition:none}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Timebox</h1>
+      <p class="sub">Timed tasks and daily reminders</p>
+    </div>
+    <div class="clock">
+      <div class="clock-time" id="clock">--:--</div>
+      <div class="clock-date" id="date"></div>
+    </div>
+    <div class="toolbar">
+      <div class="summary" id="summary"></div>
+      <span class="chip" id="sync">Starting…</span>
+      <button class="btn small" id="soundBtn" type="button" aria-pressed="true">Sound on</button>
+      <button class="btn small" id="notifBtn" type="button" hidden>Enable notifications</button>
+    </div>
+  </header>
+
+  <div id="notice"></div>
+
+  <main class="grid">
+    <section aria-labelledby="hTasks">
+      <div class="panelhead">
+        <h2 id="hTasks">Timed tasks</h2>
+        <button class="btn primary" id="addTaskBtn" type="button">New task</button>
+      </div>
+
+      <form class="card" id="taskForm" hidden novalidate>
+        <div class="field">
+          <label for="tTitle">Task</label>
+          <input type="text" id="tTitle" maxlength="120" placeholder="What needs doing?" autocomplete="off">
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="tStart">Starts at</label>
+            <input type="datetime-local" id="tStart">
+          </div>
+          <div class="field">
+            <label for="tLimit">Time limit (minutes)</label>
+            <input type="number" id="tLimit" min="1" max="1440" step="1" value="25" inputmode="numeric">
+          </div>
+        </div>
+        <div class="chips" aria-label="Quick time limits">
+          <button type="button" class="btn small" data-action="limit" data-v="15">15 min</button>
+          <button type="button" class="btn small" data-action="limit" data-v="25">25 min</button>
+          <button type="button" class="btn small" data-action="limit" data-v="45">45 min</button>
+          <button type="button" class="btn small" data-action="limit" data-v="60">1 hour</button>
+          <button type="button" class="btn small" data-action="limit" data-v="90">90 min</button>
+        </div>
+        <div class="field">
+          <label for="tNotes">Notes (optional)</label>
+          <input type="text" id="tNotes" maxlength="200" autocomplete="off">
+        </div>
+        <label class="inline" id="tNowWrap"><input type="checkbox" id="tNow"> Start the timer right away</label>
+        <p class="err" id="tErr" role="alert"></p>
+        <div class="formactions">
+          <button class="btn primary" type="submit" id="tSave">Add task</button>
+          <button class="btn" type="button" data-action="cancel-task">Cancel</button>
+        </div>
+      </form>
+
+      <div id="taskList"></div>
+    </section>
+
+    <section aria-labelledby="hRem">
+      <div class="panelhead">
+        <h2 id="hRem">Daily reminders</h2>
+        <div class="btns">
+          <button class="btn" id="addRepBtn" type="button">Repeating timer</button>
+          <button class="btn primary" id="addRemBtn" type="button">New reminder</button>
+        </div>
+      </div>
+
+      <form class="card" id="remForm" hidden novalidate>
+        <div class="row2">
+          <div class="field">
+            <label for="rName">Reminder name</label>
+            <input type="text" id="rName" maxlength="80" placeholder="Morning routine" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="rTime">Reminds me at</label>
+            <input type="time" id="rTime" value="09:00">
+          </div>
+        </div>
+        <div class="field">
+          <span class="lbl">Repeats on</span>
+          <div class="chips" id="rDays">
+            <label class="day"><input type="checkbox" value="0" aria-label="Monday" checked><span>M</span></label>
+            <label class="day"><input type="checkbox" value="1" aria-label="Tuesday" checked><span>T</span></label>
+            <label class="day"><input type="checkbox" value="2" aria-label="Wednesday" checked><span>W</span></label>
+            <label class="day"><input type="checkbox" value="3" aria-label="Thursday" checked><span>T</span></label>
+            <label class="day"><input type="checkbox" value="4" aria-label="Friday" checked><span>F</span></label>
+            <label class="day"><input type="checkbox" value="5" aria-label="Saturday" checked><span>S</span></label>
+            <label class="day"><input type="checkbox" value="6" aria-label="Sunday" checked><span>S</span></label>
+            <button type="button" class="btn small quiet" data-action="days-all">Every day</button>
+            <button type="button" class="btn small quiet" data-action="days-weekdays">Weekdays</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="rTasks">Tasks, one per line</label>
+          <textarea id="rTasks" placeholder="Drink a glass of water&#10;Check today's calendar&#10;Stretch for 10 minutes"></textarea>
+        </div>
+        <p class="err" id="rErr" role="alert"></p>
+        <div class="formactions">
+          <button class="btn primary" type="submit" id="rSave">Add reminder</button>
+          <button class="btn" type="button" data-action="cancel-rem">Cancel</button>
+        </div>
+      </form>
+
+      <form class="card" id="repForm" hidden novalidate>
+        <div class="row2">
+          <div class="field">
+            <label for="pName">Remind me to</label>
+            <input type="text" id="pName" maxlength="80" placeholder="Drink water" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="pEvery">Repeat every (minutes)</label>
+            <input type="number" id="pEvery" min="1" max="1440" step="1" value="10" inputmode="numeric">
+          </div>
+        </div>
+        <div class="chips" aria-label="Quick intervals">
+          <button type="button" class="btn small" data-action="pevery" data-v="5">5 min</button>
+          <button type="button" class="btn small" data-action="pevery" data-v="10">10 min</button>
+          <button type="button" class="btn small" data-action="pevery" data-v="15">15 min</button>
+          <button type="button" class="btn small" data-action="pevery" data-v="30">30 min</button>
+          <button type="button" class="btn small" data-action="pevery" data-v="60">1 hour</button>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="pFrom">Starting at</label>
+            <input type="time" id="pFrom" value="09:00">
+          </div>
+          <div class="field">
+            <label for="pTo">Until</label>
+            <input type="time" id="pTo" value="23:59">
+          </div>
+        </div>
+        <div class="field">
+          <span class="lbl">Active on</span>
+          <div class="chips" id="pDays">
+            <label class="day"><input type="checkbox" value="0" aria-label="Monday" checked><span>M</span></label>
+            <label class="day"><input type="checkbox" value="1" aria-label="Tuesday" checked><span>T</span></label>
+            <label class="day"><input type="checkbox" value="2" aria-label="Wednesday" checked><span>W</span></label>
+            <label class="day"><input type="checkbox" value="3" aria-label="Thursday" checked><span>T</span></label>
+            <label class="day"><input type="checkbox" value="4" aria-label="Friday" checked><span>F</span></label>
+            <label class="day"><input type="checkbox" value="5" aria-label="Saturday" checked><span>S</span></label>
+            <label class="day"><input type="checkbox" value="6" aria-label="Sunday" checked><span>S</span></label>
+            <button type="button" class="btn small quiet" data-action="pdays-all">Every day</button>
+            <button type="button" class="btn small quiet" data-action="pdays-weekdays">Weekdays</button>
+          </div>
+        </div>
+        <p class="err" id="pErr" role="alert"></p>
+        <div class="formactions">
+          <button class="btn primary" type="submit" id="pSave">Add repeating timer</button>
+          <button class="btn" type="button" data-action="cancel-rep">Cancel</button>
+        </div>
+      </form>
+
+      <div id="remList"></div>
+    </section>
+  </main>
+</div>
+<div id="alerts" aria-live="assertive"></div>
+
+<script>
+(function(){
+'use strict';
+var $=function(s){return document.querySelector(s)};
+var esc=function(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
+var uid=function(){return Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-3)};
+var pad=function(n){return String(n).padStart(2,'0')};
+var dayKey=function(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())};
+var dtLocal=function(d){return dayKey(d)+'T'+pad(d.getHours())+':'+pad(d.getMinutes())};
+var dowOf=function(d){return (d.getDay()+6)%7};
+var DAYS3=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+var ALLDAYS=[0,1,2,3,4,5,6];
+
+function fmtClock(ms){
+  var s=Math.floor(Math.abs(ms)/1000), h=Math.floor(s/3600); s%=3600;
+  var m=Math.floor(s/60); s%=60;
+  return (h?h+':'+pad(m):String(m))+':'+pad(s);
+}
+function human(ms){
+  ms=Math.max(0,ms); var m=Math.floor(ms/60000);
+  if(m<1) return 'under 1 min';
+  if(m<60) return m+' min';
+  var h=Math.floor(m/60), mm=m%60;
+  if(h<24) return h+'h'+(mm?' '+mm+'m':'');
+  var d=Math.floor(h/24); return d+'d'+(h%24?' '+(h%24)+'h':'');
+}
+function timeStr(ms){return new Date(ms).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}
+function whenLabel(ms){
+  var d=new Date(ms), now=new Date(), k=dayKey(d);
+  if(k===dayKey(now)) return 'Today';
+  if(k===dayKey(new Date(now.getTime()+86400000))) return 'Tomorrow';
+  if(k===dayKey(new Date(now.getTime()-86400000))) return 'Yesterday';
+  return d.toLocaleDateString([],{weekday:'short',day:'numeric',month:'short'});
+}
+
+/* ---------- state ---------- */
+var LS='timebox.v1';
+var state={tasks:[],reminders:[],repeaters:[],sound:true};
+var fired=new Set();
+var editingTask=null, editingRem=null, confirmDel=null, doneOpen=false;
+
+function normalize(s){
+  s=s||{};
+  return {
+    v:1,
+    sound:s.sound!==false,
+    tasks:Array.isArray(s.tasks)?s.tasks:[],
+    repeaters:(Array.isArray(s.repeaters)?s.repeaters:[]).map(function(p){
+      return Object.assign({},p,{
+        counts:p.counts||{},
+        on:p.on!==false,
+        days:Array.isArray(p.days)&&p.days.length?p.days:ALLDAYS.slice()
+      });
+    }),
+    reminders:(Array.isArray(s.reminders)?s.reminders:[]).map(function(r){
+      return Object.assign({},r,{
+        done:r.done||{},
+        days:Array.isArray(r.days)&&r.days.length?r.days:ALLDAYS.slice(),
+        tasks:Array.isArray(r.tasks)?r.tasks:[]
+      });
+    })
+  };
+}
+function sampleState(){
+  var now=Date.now(), r5=function(ms){return Math.ceil(ms/300000)*300000};
+  var mk=function(title,notes,startMs,lim,status,startedAt){
+    return {id:uid(),ex:1,title:title,notes:notes,start:dtLocal(new Date(startMs)),limitMin:lim,status:status,startedAt:startedAt,elapsedMs:0,doneAt:null};
+  };
+  var rem=function(name,time,items){
+    return {id:uid(),ex:1,name:name,time:time,days:ALLDAYS.slice(),tasks:items.map(function(t){return {id:uid(),text:t}}),done:{}};
+  };
+  return normalize({
+    tasks:[
+      mk('Inbox to zero','Reply or archive. No new tabs.',now-12*60000,30,'running',now-12*60000),
+      mk('Draft project outline','',r5(now+20*60000),45,'scheduled',null),
+      mk('Review open pull requests','',r5(now+3*3600000),25,'scheduled',null)
+    ],
+    reminders:[
+      rem('Morning routine','07:30',['Drink a glass of water','Check today’s calendar','Stretch for 10 minutes']),
+      rem('Evening wrap-up','21:30',['Plan tomorrow','Log expenses','Charge devices'])
+    ],
+    repeaters:[
+      {id:uid(),ex:1,name:'Drink water',every:10,from:'09:00',to:'23:59',days:ALLDAYS.slice(),on:true,counts:{}}
+    ]
+  });
+}
+function readLocal(){try{var j=localStorage.getItem(LS);return j?JSON.parse(j):null}catch(e){return null}}
+function writeLocal(){try{localStorage.setItem(LS,JSON.stringify(state))}catch(e){}}
+
+/* ---------- task + reminder helpers ---------- */
+var startMs=function(t){return new Date(t.start).getTime()};
+var elapsedOf=function(t,now){return (t.elapsedMs||0)+(t.status==='running'?now-t.startedAt:0)};
+var getTask=function(id){return state.tasks.find(function(t){return t.id===id})};
+var getRem=function(id){return state.reminders.find(function(r){return r.id===id})};
+function clockMs(str,base){var p=str.split(':').map(Number),d=new Date(base);d.setHours(p[0],p[1],0,0);return d.getTime()}
+function remTime(r,base){return clockMs(r.time,base)}
+var getRep=function(id){return state.repeaters.find(function(p){return p.id===id})};
+function repWindow(p,base){return [clockMs(p.from,base),clockMs(p.to,base)]}
+/* latest repeat slot at or before now, inside today's window; slots start at the window start and step by the interval */
+function repSlot(p,now){
+  if(p.days.indexOf(dowOf(new Date(now)))<0) return null;
+  var w=repWindow(p,now), ev=p.every*60000;
+  if(now<w[0]) return null;
+  var s=w[0]+Math.floor((now-w[0])/ev)*ev;
+  return s<=w[1]?s:null;
+}
+function repNext(p,now){
+  var ev=p.every*60000;
+  for(var i=0;i<8;i++){
+    var base=now+i*86400000;
+    if(p.days.indexOf(dowOf(new Date(base)))<0) continue;
+    var w=repWindow(p,base);
+    if(i===0){
+      if(now<w[0]) return w[0];
+      var t=w[0]+(Math.floor((now-w[0])/ev)+1)*ev;
+      if(t<=w[1]) return t;
+    } else return w[0];
+  }
+  return null;
+}
+function liveRep(p,now){
+  if(!p.on) return {main:'Paused',sub:'resume to get reminders again',pct:0,chip:'Paused',chipCls:'',cls:'off'};
+  var n=repNext(p,now);
+  if(n===null) return {main:'—',sub:'no active days',pct:0,chip:'No days',chipCls:'',cls:'off'};
+  var ev=p.every*60000, d=n-now;
+  var act=dayKey(new Date(n))===dayKey(new Date(now))&&now>=clockMs(p.from,now);
+  return {
+    main:d<3600000?fmtClock(d):human(d),
+    sub:act?'until the next reminder':'until '+whenLabel(n).toLowerCase()+' at '+timeStr(n),
+    pct:act?Math.max(0,Math.min(100,(1-d/ev)*100)):0,
+    chip:act?'Active':'Waiting', chipCls:act?'run':'', cls:''
+  };
+}
+function isDone(r,dk,tid){return (r.done[dk]||[]).indexOf(tid)>=0}
+function doneCount(r,dk){return r.tasks.filter(function(t){return isDone(r,dk,t.id)}).length}
+function daysLabel(days){
+  var s=days.slice().sort().join();
+  if(s==='0,1,2,3,4,5,6') return 'Every day';
+  if(s==='0,1,2,3,4') return 'Weekdays';
+  if(s==='5,6') return 'Weekends';
+  return days.slice().sort().map(function(i){return DAYS3[i]}).join(' ');
+}
+function nextDayLabel(r,now){
+  for(var i=1;i<=7;i++){var d=new Date(now+i*86400000);if(r.days.indexOf(dowOf(d))>=0) return i===1?'tomorrow':DAYS3[dowOf(d)]}
+  return '';
+}
+function pruneDone(r){
+  var keep={};for(var i=0;i<14;i++)keep[dayKey(new Date(Date.now()-i*86400000))]=1;
+  Object.keys(r.done).forEach(function(k){if(!keep[k])delete r.done[k]});
+}
+
+function liveInfo(t,now){
+  var lim=t.limitMin*60000;
+  if(t.status==='running'||t.status==='paused'){
+    var el=elapsedOf(t,now), rem=lim-el, over=rem<0;
+    return {
+      main:(over?'+':'')+fmtClock(Math.abs(rem)),
+      sub:(over?'over the '+t.limitMin+' min limit':'left of '+t.limitMin+' min')+(t.status==='paused'?' · paused':''),
+      pct:Math.min(100,el/lim*100), cls:over?'over':(rem<=lim*0.2?'low':''),
+      chip:t.status==='paused'?'Paused':(over?'Over limit':'Running'), chipCls:over?'crit':(t.status==='paused'?'':'run')
+    };
+  }
+  if(t.status==='done'){
+    var e2=t.elapsedMs||0, o2=e2>lim;
+    return {
+      main:fmtClock(e2),
+      sub:o2?'over by '+fmtClock(e2-lim)+' · limit '+t.limitMin+' min':'within the '+t.limitMin+' min limit',
+      pct:Math.min(100,e2/lim*100), cls:'isdone'+(o2?' over':''), chip:'Done', chipCls:'ok'
+    };
+  }
+  var d=startMs(t)-now;
+  if(d>0) return {main:d<3600000?fmtClock(d):human(d),sub:'until start · '+t.limitMin+' min limit',pct:0,cls:'',chip:'Scheduled',chipCls:''};
+  return {main:human(-d),sub:'past the start time · '+t.limitMin+' min limit',pct:0,cls:'low',chip:'Due to start',chipCls:'warn'};
+}
+function remChip(r,now){
+  var today=new Date(now), dk=dayKey(today);
+  if(r.days.indexOf(dowOf(today))<0) return {t:'Next '+nextDayLabel(r,now),c:''};
+  var total=r.tasks.length, n=doneCount(r,dk);
+  if(total>0&&n>=total) return {t:'Done today',c:'ok'};
+  var at=remTime(r,today);
+  if(now>=at) return {t:'Due · '+(total-n)+' left',c:'warn'};
+  return {t:'in '+human(at-now),c:'run'};
+}
+
+/* ---------- alerts ---------- */
+var actx=null;
+function unlockAudio(){
+  if(actx) return;
+  try{actx=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}
+}
+document.addEventListener('pointerdown',unlockAudio);
+document.addEventListener('keydown',unlockAudio);
+function beep(){
+  if(!state.sound||!actx) return;
+  try{
+    if(actx.state==='suspended') actx.resume();
+    var t0=actx.currentTime;
+    [0,0.22,0.44].forEach(function(o,i){
+      var os=actx.createOscillator(), g=actx.createGain();
+      os.type='sine'; os.frequency.value=i===2?988:784;
+      g.gain.setValueAtTime(0.0001,t0+o);
+      g.gain.exponentialRampToValueAtTime(0.18,t0+o+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,t0+o+0.2);
+      os.connect(g); g.connect(actx.destination);
+      os.start(t0+o); os.stop(t0+o+0.22);
+    });
+  }catch(e){}
+}
+function pushAlert(o){
+  var el=document.createElement('div');
+  el.className='alert'; el.setAttribute('role','alert');
+  el.innerHTML='<div class="atext"><strong>'+esc(o.title)+'</strong><span>'+esc(o.msg)+'</span></div><div class="abtns">'+
+    (o.buttons||[]).map(function(b){return '<button class="btn small" type="button" data-action="'+b.action+'" data-id="'+esc(b.id)+'">'+esc(b.label)+'</button>'}).join('')+
+    '<button class="btn small quiet" type="button" data-action="dismiss">Dismiss</button></div>';
+  $('#alerts').appendChild(el);
+  beep();
+  notify(o.title,o.msg);
+}
+function eachEvent(now,fn){
+  var d=new Date(now), dk=dayKey(d);
+  state.tasks.forEach(function(t){
+    if(t.status==='scheduled'&&startMs(t)<=now) fn('start:'+t.id,'start',t,dk);
+    if(t.status==='running'&&elapsedOf(t,now)>=t.limitMin*60000) fn('limit:'+t.id,'limit',t,dk);
+  });
+  state.reminders.forEach(function(r){
+    if(r.days.indexOf(dowOf(d))>=0&&remTime(r,d)<=now) fn('rem:'+r.id+':'+dk,'rem',r,dk);
+  });
+  state.repeaters.forEach(function(p){
+    if(!p.on) return;
+    var s=repSlot(p,now);
+    if(s!==null) fn('rep:'+p.id+':'+s,'rep',p,dk);
+  });
+}
+function primeFired(){eachEvent(Date.now(),function(k){fired.add(k)})}
+function checkAlerts(now){
+  eachEvent(now,function(k,kind,o,dk){
+    if(fired.has(k)) return;
+    fired.add(k);
+    if(kind==='start') pushAlert({title:'Time to start: '+o.title,msg:o.limitMin+' min limit',buttons:[{label:'Start timer',action:'alert-start',id:o.id}]});
+    else if(kind==='limit') pushAlert({title:'Time is up: '+o.title,msg:'The '+o.limitMin+' min limit has been reached.',buttons:[{label:'Mark done',action:'alert-done',id:o.id},{label:'+5 min',action:'extend',id:o.id}]});
+    else if(kind==='rep') pushAlert({title:o.name,msg:'Repeats every '+o.every+' min',buttons:[{label:'Done',action:'alert-rep-log',id:o.id}]});
+    else {
+      var left=o.tasks.filter(function(t){return !isDone(o,dk,t.id)});
+      if(left.length) pushAlert({title:o.name,msg:left.length+' to do: '+left.slice(0,3).map(function(t){return t.text}).join(', ')+(left.length>3?'…':''),buttons:[]});
+    }
+  });
+}
+
+/* ---------- persistence ---------- */
+var ref=null, status='syncing', saving=false, dirty=false, saveTimer=null, syncTimer=null, writeBlocked=false;
+function setStatus(s){
+  status=s;
+  var map={syncing:['Syncing…',''],cloud:['Saved to your account','ok'],local:['Saved on this device',''],retry:['Save failed, retrying','warn']};
+  var el=$('#sync'); el.textContent=map[s][0]; el.className='chip '+map[s][1];
+}
+function persist(){
+  writeLocal();
+  if(!ref||writeBlocked) return;
+  dirty=true; clearTimeout(saveTimer); saveTimer=setTimeout(flush,400);
+}
+async function flush(){
+  if(saving||!ref||!dirty) return;
+  saving=true; dirty=false;
+  try{
+    await ref.set({state:state,savedAt:Date.now()});
+    setStatus('cloud');
+  }catch(e){
+    if(e&&e.code==='invalid_argument'){writeBlocked=true;setStatus('local')}
+    else {dirty=true;setStatus('retry');setTimeout(flush,5000)}
+  }
+  saving=false;
+  if(dirty&&status!=='retry') flush();
+}
+async function initCloud(){
+  syncTimer=setTimeout(function(){if(status==='syncing') setStatus('local')},10000);
+  try{
+    var c=window.claude;
+    if(!c||!c.use){clearTimeout(syncTimer);setStatus('local');return}
+    var db=await c.use('db'), user=await c.use('user');
+    var id=user?await user.id():null;
+    if(!db||!id){clearTimeout(syncTimer);setStatus('local');return}
+    ref=db.doc('data/users/'+id+'/appstate/main');
+    ref.onSnapshot(function(snap){
+      clearTimeout(syncTimer);
+      if(snap.metadata.hasPendingWrites) return;
+      var d=snap.exists?snap.data():null;
+      if(d&&d.state&&!dirty&&!saving){
+        var incoming=normalize(d.state);
+        if(JSON.stringify(incoming)!==JSON.stringify(state)){
+          state=incoming; writeLocal(); primeFired(); renderAll(); syncSoundBtn();
+        }
+      }
+      if(!writeBlocked) setStatus('cloud');
+    },function(){ref=null;setStatus('local')});
+  }catch(e){clearTimeout(syncTimer);setStatus('local')}
+}
+function commit(){persist();renderAll()}
+
+/* ---------- rendering ---------- */
+function btn(label,action,id,cls){
+  return '<button type="button" class="btn small '+(cls||'')+'" data-action="'+action+'" data-id="'+esc(id)+'">'+esc(label)+'</button>';
+}
+function delBtn(kind,id){
+  var armed=confirmDel&&confirmDel.id===id&&Date.now()<confirmDel.until;
+  return btn(armed?'Confirm delete':'Delete',kind,id,armed?'crit':'quiet');
+}
+function taskCard(t,now){
+  var li=liveInfo(t,now), st=startMs(t), b='';
+  if(t.status==='scheduled') b=btn('Start now','start',t.id,'primary')+btn('Edit','edit-task',t.id);
+  else if(t.status==='running') b=btn('Pause','pause',t.id)+btn('Done','done',t.id,'primary')+btn('+5 min','extend',t.id)+btn('Edit','edit-task',t.id);
+  else if(t.status==='paused') b=btn('Resume','start',t.id,'primary')+btn('Done','done',t.id)+btn('Edit','edit-task',t.id);
+  else b=btn('Reopen','reopen',t.id);
+  b+=delBtn('del-task',t.id);
+  var showBar=t.status!=='scheduled';
+  var meta=whenLabel(st)+' · '+timeStr(st)+' · '+t.limitMin+' min limit';
+  return '<article class="card task '+li.cls+'" data-t="'+t.id+'">'+
+    '<div class="thead"><div class="ttitle"><h3>'+esc(t.title)+'</h3><p class="meta">'+esc(meta)+'</p></div><span class="chip '+li.chipCls+'" data-chip>'+esc(li.chip)+'</span></div>'+
+    (t.notes?'<p class="notes">'+esc(t.notes)+'</p>':'')+
+    '<div class="live"><div class="readout">'+esc(li.main)+'</div><div class="sub">'+esc(li.sub)+'</div></div>'+
+    (showBar?'<div class="bar"><i style="width:'+li.pct.toFixed(1)+'%"></i></div>':'')+
+    '<div class="actions">'+b+'</div></article>';
+}
+function renderTasks(){
+  var now=Date.now(), ts=state.tasks;
+  var active=ts.filter(function(t){return t.status==='running'||t.status==='paused'});
+  var sched=ts.filter(function(t){return t.status==='scheduled'}).sort(function(a,b){return startMs(a)-startMs(b)});
+  var done=ts.filter(function(t){return t.status==='done'}).sort(function(a,b){return (b.doneAt||0)-(a.doneAt||0)});
+  var h='';
+  if(!ts.length) h='<div class="empty">No timed tasks yet. Add one with a start time and a time limit. When the time comes you get an alert, and the timer counts down against your limit.</div>';
+  if(active.length) h+='<div class="glabel">In progress</div><div class="stack">'+active.map(function(t){return taskCard(t,now)}).join('')+'</div>';
+  if(sched.length) h+='<div class="glabel">Scheduled</div><div class="stack">'+sched.map(function(t){return taskCard(t,now)}).join('')+'</div>';
+  if(done.length) h+='<details class="donebox" id="doneBox"'+(doneOpen?' open':'')+'><summary>Completed ('+done.length+')</summary><div class="stack">'+done.map(function(t){return taskCard(t,now)}).join('')+'</div></details>';
+  $('#taskList').innerHTML=h;
+  var db=$('#doneBox'); if(db) db.addEventListener('toggle',function(){doneOpen=db.open});
+}
+function remCard(r,now){
+  var today=new Date(now), dk=dayKey(today), on=r.days.indexOf(dowOf(today))>=0;
+  var ch=remChip(r,now), total=r.tasks.length, n=doneCount(r,dk);
+  var items=r.tasks.map(function(t){
+    return '<li><label><input type="checkbox" data-toggle data-r="'+r.id+'" data-i="'+t.id+'"'+(isDone(r,dk,t.id)?' checked':'')+(on?'':' disabled')+'><span>'+esc(t.text)+'</span></label></li>';
+  }).join('');
+  return '<article class="card rem'+(on?'':' off')+'" data-rid="'+r.id+'">'+
+    '<div class="rhead"><div class="rtime">'+esc(timeStr(remTime(r,today)))+'</div>'+
+    '<div class="rname"><h3>'+esc(r.name)+'</h3><p class="meta">'+esc(daysLabel(r.days))+(on?' · '+n+' of '+total+' done today':'')+'</p></div>'+
+    '<span class="chip '+ch.c+'" data-rchip>'+esc(ch.t)+'</span></div>'+
+    (on?'<div class="bar sm"><i style="width:'+(total?(n/total*100):0).toFixed(0)+'%"></i></div>':'')+
+    '<ul class="checks">'+items+'</ul>'+
+    '<div class="actions">'+btn('Edit','edit-rem',r.id)+delBtn('del-rem',r.id)+'</div></article>';
+}
+function repCard(p,now){
+  var li=liveRep(p,now), dk=dayKey(new Date(now)), c=(p.counts&&p.counts[dk])||0;
+  var meta='Every '+p.every+' min · '+timeStr(clockMs(p.from,now))+'–'+timeStr(clockMs(p.to,now))+' · '+daysLabel(p.days);
+  return '<article class="card rep'+(li.cls?' '+li.cls:'')+'" data-p="'+p.id+'">'+
+    '<div class="thead"><div class="ttitle"><h3>'+esc(p.name)+'</h3><p class="meta">'+esc(meta)+'</p></div><span class="chip '+li.chipCls+'" data-pchip>'+esc(li.chip)+'</span></div>'+
+    '<div class="live"><div class="readout">'+esc(li.main)+'</div><div class="sub">'+esc(li.sub)+'</div></div>'+
+    '<div class="bar"><i style="width:'+li.pct.toFixed(1)+'%"></i></div>'+
+    '<div class="actions">'+btn('Done ('+c+' today)','rep-log',p.id,'primary')+btn(p.on?'Pause':'Resume','rep-toggle',p.id)+btn('Edit','edit-rep',p.id)+delBtn('del-rep',p.id)+'</div></article>';
+}
+function renderReminders(){
+  var now=Date.now(), d=new Date(now), dow=dowOf(d);
+  var rs=state.reminders.slice().sort(function(a,b){
+    var ao=a.days.indexOf(dow)>=0?0:1, bo=b.days.indexOf(dow)>=0?0:1;
+    return ao-bo||a.time.localeCompare(b.time);
+  });
+  var rp=state.repeaters.slice().sort(function(a,b){return a.name.localeCompare(b.name)});
+  var h='';
+  if(!rs.length&&!rp.length) h='<div class="empty">Nothing here yet. A reminder has a time, the days it repeats and a checklist of tasks that resets every day. A repeating timer nudges you every few minutes, like drinking water every 10 minutes.</div>';
+  if(rp.length) h+=(rs.length?'<div class="glabel">Repeating timers</div>':'')+'<div class="stack">'+rp.map(function(p){return repCard(p,now)}).join('')+'</div>';
+  if(rs.length) h+=(rp.length?'<div class="glabel">Daily checklists</div>':'')+'<div class="stack">'+rs.map(function(r){return remCard(r,now)}).join('')+'</div>';
+  $('#remList').innerHTML=h;
+}
+function summaryText(now){
+  var d=new Date(now), dk=dayKey(d), dow=dowOf(d);
+  var running=state.tasks.filter(function(t){return t.status==='running'}).length;
+  var sched=state.tasks.filter(function(t){return t.status==='scheduled'}).length;
+  var left=0;
+  state.reminders.forEach(function(r){if(r.days.indexOf(dow)>=0) left+=r.tasks.length-doneCount(r,dk)});
+  var p=[];
+  if(running) p.push(running+' running');
+  if(sched) p.push(sched+' scheduled');
+  if(left) p.push(left+' reminder task'+(left===1?'':'s')+' left today');
+  return p.length?p.join(' · '):'Nothing scheduled yet';
+}
+function renderNotice(){
+  var has=state.tasks.some(function(t){return t.ex})||state.reminders.some(function(r){return r.ex})||state.repeaters.some(function(p){return p.ex});
+  $('#notice').innerHTML=has?'<div class="note"><span>These are sample items so you can see how it works. Your own tasks and reminders go alongside them.</span><button type="button" class="btn small" data-action="clear-examples">Clear samples</button></div>':'';
+}
+function renderAll(){
+  $('#summary').textContent=summaryText(Date.now());
+  renderNotice(); renderTasks(); renderReminders();
+}
+function syncSoundBtn(){
+  var b=$('#soundBtn'); b.textContent=state.sound?'Sound on':'Sound off'; b.setAttribute('aria-pressed',state.sound?'true':'false');
+}
+
+/* ---------- live updates ---------- */
+var lastMinute='';
+function tick(){
+  var now=Date.now(), d=new Date(now);
+  var clock=d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  $('#clock').textContent=clock;
+  if(clock!==lastMinute){
+    lastMinute=clock;
+    $('#date').textContent=d.toLocaleDateString([],{weekday:'long',day:'numeric',month:'long'});
+  }
+  state.tasks.forEach(function(t){
+    if(t.status==='done') return;
+    var root=document.querySelector('[data-t="'+t.id+'"]'); if(!root) return;
+    var li=liveInfo(t,now);
+    root.querySelector('.readout').textContent=li.main;
+    root.querySelector('.sub').textContent=li.sub;
+    var fill=root.querySelector('.bar>i'); if(fill) fill.style.width=li.pct.toFixed(1)+'%';
+    root.classList.remove('low','over'); if(li.cls) root.classList.add(li.cls);
+    var chip=root.querySelector('[data-chip]'); chip.textContent=li.chip; chip.className='chip '+li.chipCls;
+  });
+  state.reminders.forEach(function(r){
+    var root=document.querySelector('[data-rid="'+r.id+'"]'); if(!root) return;
+    var c=remChip(r,now), chip=root.querySelector('[data-rchip]');
+    chip.textContent=c.t; chip.className='chip '+c.c;
+  });
+  state.repeaters.forEach(function(p){
+    var root=document.querySelector('[data-p="'+p.id+'"]'); if(!root) return;
+    var li=liveRep(p,now);
+    root.querySelector('.readout').textContent=li.main;
+    root.querySelector('.sub').textContent=li.sub;
+    root.querySelector('.bar>i').style.width=li.pct.toFixed(1)+'%';
+    root.classList.toggle('off',li.cls==='off');
+    var chip=root.querySelector('[data-pchip]'); chip.textContent=li.chip; chip.className='chip '+li.chipCls;
+  });
+  var s=summaryText(now); if($('#summary').textContent!==s) $('#summary').textContent=s;
+  checkAlerts(now);
+}
+
+/* ---------- forms ---------- */
+function nextSlot(){return dtLocal(new Date(Math.ceil((Date.now()+60000)/300000)*300000))}
+function openTaskForm(t){
+  editingTask=t?t.id:null;
+  var f=$('#taskForm'); f.hidden=false;
+  $('#tTitle').value=t?t.title:''; $('#tStart').value=t?t.start:nextSlot();
+  $('#tLimit').value=t?t.limitMin:25; $('#tNotes').value=t?(t.notes||''):'';
+  $('#tNow').checked=false; $('#tNowWrap').hidden=!!t;
+  $('#tSave').textContent=t?'Save changes':'Add task'; $('#tErr').textContent='';
+  $('#tTitle').focus(); f.scrollIntoView({block:'nearest'});
+}
+function closeTaskForm(){editingTask=null;$('#taskForm').hidden=true}
+function openRemForm(r){
+  editingRem=r?r.id:null;
+  var f=$('#remForm'); f.hidden=false;
+  $('#rName').value=r?r.name:''; $('#rTime').value=r?r.time:'09:00';
+  $('#rTasks').value=r?r.tasks.map(function(t){return t.text}).join('\n'):'';
+  document.querySelectorAll('#rDays input').forEach(function(i){i.checked=r?r.days.indexOf(+i.value)>=0:true});
+  $('#rSave').textContent=r?'Save changes':'Add reminder'; $('#rErr').textContent='';
+  $('#rName').focus(); f.scrollIntoView({block:'nearest'});
+}
+function closeRemForm(){editingRem=null;$('#remForm').hidden=true}
+var editingRep=null;
+function nextMinute(){var d=new Date(Date.now()+60000);return pad(d.getHours())+':'+pad(d.getMinutes())}
+function openRepForm(p){
+  editingRep=p?p.id:null;
+  var f=$('#repForm'); f.hidden=false;
+  $('#pName').value=p?p.name:''; $('#pEvery').value=p?p.every:10;
+  $('#pFrom').value=p?p.from:nextMinute(); $('#pTo').value=p?p.to:'23:59';
+  document.querySelectorAll('#pDays input').forEach(function(i){i.checked=p?p.days.indexOf(+i.value)>=0:true});
+  $('#pSave').textContent=p?'Save changes':'Add repeating timer'; $('#pErr').textContent='';
+  $('#pName').focus(); f.scrollIntoView({block:'nearest'});
+}
+function closeRepForm(){editingRep=null;$('#repForm').hidden=true}
+
+$('#addTaskBtn').addEventListener('click',function(){openTaskForm(null)});
+$('#addRemBtn').addEventListener('click',function(){openRemForm(null)});
+$('#addRepBtn').addEventListener('click',function(){openRepForm(null)});
+$('#soundBtn').addEventListener('click',function(){
+  state.sound=!state.sound; syncSoundBtn(); unlockAudio(); if(state.sound) beep(); persist();
+});
+
+$('#taskForm').addEventListener('submit',function(e){
+  e.preventDefault();
+  var title=$('#tTitle').value.trim(), start=$('#tStart').value, lim=parseInt($('#tLimit').value,10);
+  var notes=$('#tNotes').value.trim(), nowNow=$('#tNow').checked, err=$('#tErr'), nowMs=Date.now();
+  err.textContent='';
+  if(!title){err.textContent='Give the task a name.';return}
+  if(!start&&!nowNow){err.textContent='Choose when it should start.';return}
+  if(!(lim>=1&&lim<=1440)){err.textContent='The time limit must be between 1 and 1440 minutes.';return}
+  if(editingTask){
+    var t=getTask(editingTask);
+    if(t){t.title=title;t.notes=notes;t.limitMin=lim;if(start)t.start=start;fired.delete('start:'+t.id);fired.delete('limit:'+t.id)}
+  }else{
+    state.tasks.push({id:uid(),title:title,notes:notes,start:nowNow?dtLocal(new Date(nowMs)):start,limitMin:lim,
+      status:nowNow?'running':'scheduled',startedAt:nowNow?nowMs:null,elapsedMs:0,doneAt:null});
+  }
+  primeFired(); closeTaskForm(); commit();
+});
+$('#remForm').addEventListener('submit',function(e){
+  e.preventDefault();
+  var name=$('#rName').value.trim(), time=$('#rTime').value, err=$('#rErr');
+  var days=[].slice.call(document.querySelectorAll('#rDays input:checked')).map(function(i){return +i.value});
+  var lines=$('#rTasks').value.split('\n').map(function(s){return s.trim()}).filter(Boolean);
+  err.textContent='';
+  if(!name){err.textContent='Give the reminder a name.';return}
+  if(!time){err.textContent='Choose a time.';return}
+  if(!days.length){err.textContent='Pick at least one day.';return}
+  if(!lines.length){err.textContent='Add at least one task, one per line.';return}
+  if(editingRem){
+    var r=getRem(editingRem);
+    if(r){
+      var old={};r.tasks.forEach(function(t){old[t.text]=t.id});
+      r.name=name;r.time=time;r.days=days;
+      r.tasks=lines.map(function(x){return {id:old[x]||uid(),text:x}});
+      fired.delete('rem:'+r.id+':'+dayKey(new Date()));
+    }
+  }else{
+    state.reminders.push({id:uid(),name:name,time:time,days:days,tasks:lines.map(function(x){return {id:uid(),text:x}}),done:{}});
+  }
+  primeFired(); closeRemForm(); commit();
+});
+
+$('#repForm').addEventListener('submit',function(e){
+  e.preventDefault();
+  var name=$('#pName').value.trim(), ev=parseInt($('#pEvery').value,10), from=$('#pFrom').value, to=$('#pTo').value, err=$('#pErr');
+  var days=[].slice.call(document.querySelectorAll('#pDays input:checked')).map(function(i){return +i.value});
+  err.textContent='';
+  if(!name){err.textContent='Say what to remind you about.';return}
+  if(!(ev>=1&&ev<=1440)){err.textContent='The interval must be between 1 and 1440 minutes.';return}
+  if(!from||!to){err.textContent='Set a start and an end time.';return}
+  if(to<from){err.textContent='The end time must be after the start time.';return}
+  if(!days.length){err.textContent='Pick at least one day.';return}
+  if(editingRep){
+    var p=getRep(editingRep);
+    if(p){p.name=name;p.every=ev;p.from=from;p.to=to;p.days=days}
+  }else{
+    state.repeaters.push({id:uid(),name:name,every:ev,from:from,to:to,days:days,on:true,counts:{}});
+  }
+  primeFired(); closeRepForm(); commit();
+});
+
+/* ---------- actions ---------- */
+var ACT={
+  start:function(id){var t=getTask(id);if(!t)return;t.status='running';t.startedAt=Date.now();fired.add('start:'+id);return true},
+  pause:function(id){var t=getTask(id);if(!t)return;t.elapsedMs=elapsedOf(t,Date.now());t.startedAt=null;t.status='paused';return true},
+  done:function(id){var t=getTask(id);if(!t)return;t.elapsedMs=elapsedOf(t,Date.now());t.startedAt=null;t.status='done';t.doneAt=Date.now();fired.add('limit:'+id);
+    var d=state.tasks.filter(function(x){return x.status==='done'}).sort(function(a,b){return (a.doneAt||0)-(b.doneAt||0)});
+    while(d.length>30){var o=d.shift();state.tasks=state.tasks.filter(function(x){return x.id!==o.id})}
+    return true},
+  reopen:function(id){var t=getTask(id);if(!t)return;t.status='paused';t.doneAt=null;t.startedAt=null;if((t.elapsedMs||0)>=t.limitMin*60000)fired.add('limit:'+id);return true},
+  extend:function(id){var t=getTask(id);if(!t)return;t.limitMin+=5;fired.delete('limit:'+id);return true},
+  'rep-log':function(id){
+    var p=getRep(id);if(!p)return;
+    var dk=dayKey(new Date()), oldest=dayKey(new Date(Date.now()-13*86400000));
+    p.counts[dk]=(p.counts[dk]||0)+1;
+    Object.keys(p.counts).forEach(function(k){if(k<oldest)delete p.counts[k]});
+    return true;
+  },
+  'rep-toggle':function(id){var p=getRep(id);if(!p)return;p.on=!p.on;if(p.on)primeFired();return true}
+};
+function armDelete(id,remove){
+  if(confirmDel&&confirmDel.id===id&&Date.now()<confirmDel.until){confirmDel=null;remove();commit();return}
+  confirmDel={id:id,until:Date.now()+4000};
+  renderAll();
+  setTimeout(function(){if(confirmDel&&confirmDel.id===id&&Date.now()>=confirmDel.until){confirmDel=null;renderAll()}},4100);
+}
+document.addEventListener('click',function(e){
+  var b=e.target.closest('[data-action]'); if(!b) return;
+  var a=b.dataset.action, id=b.dataset.id;
+  if(a==='dismiss'){b.closest('.alert').remove();return}
+  if(a==='limit'){$('#tLimit').value=b.dataset.v;return}
+  if(a==='cancel-task'){closeTaskForm();return}
+  if(a==='cancel-rem'){closeRemForm();return}
+  if(a==='cancel-rep'){closeRepForm();return}
+  if(a==='pevery'){$('#pEvery').value=b.dataset.v;return}
+  if(a==='pdays-all'||a==='pdays-weekdays'){
+    document.querySelectorAll('#pDays input').forEach(function(i){i.checked=a==='pdays-all'||+i.value<5});return;
+  }
+  if(a==='edit-rep'){var pp=getRep(id);if(pp)openRepForm(pp);return}
+  if(a==='del-rep'){armDelete(id,function(){state.repeaters=state.repeaters.filter(function(p){return p.id!==id})});return}
+  if(a==='days-all'||a==='days-weekdays'){
+    document.querySelectorAll('#rDays input').forEach(function(i){i.checked=a==='days-all'||+i.value<5});return;
+  }
+  if(a==='edit-task'){var t=getTask(id);if(t)openTaskForm(t);return}
+  if(a==='edit-rem'){var r=getRem(id);if(r)openRemForm(r);return}
+  if(a==='del-task'){armDelete(id,function(){state.tasks=state.tasks.filter(function(t){return t.id!==id})});return}
+  if(a==='del-rem'){armDelete(id,function(){state.reminders=state.reminders.filter(function(r){return r.id!==id})});return}
+  if(a==='clear-examples'){
+    state.tasks=state.tasks.filter(function(t){return !t.ex});
+    state.reminders=state.reminders.filter(function(r){return !r.ex});
+    state.repeaters=state.repeaters.filter(function(p){return !p.ex});
+    commit();return;
+  }
+  var alertEl=b.closest('.alert'), name=a.replace('alert-','');
+  if(ACT[name]&&ACT[name](id)){ if(alertEl) alertEl.remove(); commit(); }
+});
+document.addEventListener('change',function(e){
+  var c=e.target; if(!c.matches||!c.matches('input[data-toggle]')) return;
+  var r=getRem(c.dataset.r); if(!r) return;
+  var dk=dayKey(new Date()), arr=r.done[dk]||(r.done[dk]=[]), i=arr.indexOf(c.dataset.i);
+  if(c.checked&&i<0) arr.push(c.dataset.i);
+  if(!c.checked&&i>=0) arr.splice(i,1);
+  pruneDone(r);
+  var rid=c.dataset.r, tid=c.dataset.i;
+  commit();
+  var again=document.querySelector('input[data-r="'+rid+'"][data-i="'+tid+'"]'); if(again) again.focus();
+});
+document.addEventListener('visibilitychange',function(){if(!document.hidden) tick()});
+
+
+/* ---------- system notifications (installed app) ---------- */
+function notify(title,body){
+  try{
+    if(!('Notification' in window)||Notification.permission!=='granted') return;
+    var opts={body:body,icon:'icon-192.png',tag:title,renotify:true};
+    if(navigator.serviceWorker&&location.protocol!=='file:'){
+      navigator.serviceWorker.ready.then(function(reg){reg.showNotification(title,opts)}).catch(function(){});
+    }else{ new Notification(title,opts); }
+  }catch(e){}
+}
+function syncNotifBtn(){
+  var b=$('#notifBtn');
+  b.hidden=!('Notification' in window)||Notification.permission==='granted'||Notification.permission==='denied';
+}
+$('#notifBtn').addEventListener('click',function(){
+  try{Notification.requestPermission().then(syncNotifBtn)}catch(e){}
+});
+
+/* ---------- boot ---------- */
+var local=readLocal();
+state=local?normalize(local):sampleState();
+primeFired(); syncSoundBtn(); renderAll(); setStatus('syncing');
+setInterval(tick,1000); tick();
+initCloud();
+syncNotifBtn();
+if('serviceWorker' in navigator&&location.protocol!=='file:'){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){})})}
+})();
+</script>
+</body>
+</html>

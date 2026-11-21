@@ -1,0 +1,31 @@
+{
+  "name": "timebox",
+  "version": "1.0.0",
+  "description": "Timed tasks, daily reminder checklists and repeating timers.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "app.timebox.desktop",
+    "productName": "Timebox",
+    "files": [
+      "main.js",
+      "app/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "app/icon-512.png"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "app/icon-512.png"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "app/icon-512.png"
+    }
+  },
+  "author": "Timebox"
+}
